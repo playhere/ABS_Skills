@@ -1,5 +1,6 @@
 import pygame
 import random
+import os # Import os module for file operations
 
 # Initialize Pygame
 pygame.init()
@@ -11,6 +12,19 @@ SCREEN_HEIGHT = 600
 Default_Speed = 8
 Speed_Increment = 2
 
+# Function to load high score from file
+def load_high_score():
+    try:
+        with open('highscore.txt', 'r') as f:
+            return int(f.read())
+    except (FileNotFoundError, ValueError):
+        return 0 # Return 0 if file not found or content is invalid
+
+# Function to save high score to file
+def save_high_score(score):
+    with open('highscore.txt', 'w') as f:
+        f.write(str(score))
+
 # Create the game display surface
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -19,6 +33,9 @@ pygame.display.set_caption("Simple Pygame Game")
 
 # Create a Clock object to control the frame rate
 clock = pygame.time.Clock()
+
+# Load high score
+high_score = load_high_score()
 
 # --- Asset Directories ---
 IMAGE_DIR = "assets/images/"
@@ -233,7 +250,7 @@ except pygame.error as e:
 # --- End Sound Effect Setup ---
 
 def reset_game():
-    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer,debug_draw_rects,bonus_scored_recently
+    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer,debug_draw_rects,bonus_scored_recently,high_score
     score = 0
     level = 1
     obstacle_speed = INITIAL_OBSTACLE_SPEED
@@ -355,6 +372,12 @@ while running:
                 if game_over_sound:
                     game_over_sound.play()
                 game_active = False
+                
+                # Check and save high score
+                # global 
+                if score > high_score:
+                    high_score = score
+                    save_high_score(high_score)
 
     # Score increment
     if game_active:
@@ -409,6 +432,7 @@ while running:
         level_surface = game_font.render(f"Level: {level}", True, (0, 0, 0))
         level_rect = level_surface.get_rect(topleft=(10, score_rect.bottom + 5))
         screen.blit(level_surface, level_rect)
+    
     else:
         # Display Game Over messages
         # (Existing Game Over message drawing code remains here)
@@ -428,6 +452,11 @@ while running:
         restart_text = game_font.render("Press R to Restart", True, (0, 0, 0))
         restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 70))
         screen.blit(restart_text, restart_rect)
+
+    # Display High Score in top right corner
+    high_score_surface = game_font.render(f"High Score: {high_score}", True, (0, 0, 0))
+    high_score_rect = high_score_surface.get_rect(topright=(SCREEN_WIDTH - 10, 10))
+    screen.blit(high_score_surface, high_score_rect)
 
     pygame.display.flip()
     clock.tick(60)
