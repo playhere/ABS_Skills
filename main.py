@@ -1,4 +1,5 @@
 import pygame
+import random
 
 # Initialize Pygame
 pygame.init()
@@ -7,6 +8,8 @@ pygame.mixer.init() # Initialize the mixer
 # Define screen dimensions
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
+Default_Speed = 8
+Speed_Increment = 2
 
 # Create the game display surface
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -33,6 +36,7 @@ class Dinosaur:
         self.is_jumping = False
         self.jump_velocity = 0
         self.gravity = 1
+        self.can_double_jump = True # Add flag for double jump
         
         try:
             self.image = pygame.image.load(IMAGE_DIR + "dinosaur.png").convert_alpha()
@@ -56,6 +60,9 @@ class Dinosaur:
         if not self.is_jumping:
             self.is_jumping = True
             self.jump_velocity = -20  # Negative for upward movement
+        elif self.can_double_jump: # Allow double jump if in air and can_double_jump is True
+            self.jump_velocity = -15 # Adjust jump velocity for double jump if needed
+            self.can_double_jump = False # Disable double jump until landing
 
     def update(self):
         if self.is_jumping:
@@ -65,6 +72,7 @@ class Dinosaur:
                 self.rect.y = self.initial_y_pos
                 self.is_jumping = False
                 self.jump_velocity = 0
+                self.can_double_jump = True # Reset double jump on landing
             self.collision_rect.center = self.rect.center # Keep collision_rect synced
 
     def draw(self, surface):
@@ -73,15 +81,13 @@ class Dinosaur:
         else:
             pygame.draw.rect(surface, self.color, self.rect)
 
-import random
-
 # Define Obstacle class
 class Obstacle:
     def __init__(self, screen_width, screen_height_minus_ground_offset):
         self.screen_width = screen_width
         self.ground_y_offset = screen_height_minus_ground_offset # e.g. SCREEN_HEIGHT - 10
         self.color = (255, 0, 0)  # Fallback color
-        self.speed = 5 # Default speed, can be overridden
+        self.speed = Default_Speed # Default speed, can be overridden
 
         try:
             self.image = pygame.image.load(IMAGE_DIR + "cactus.png").convert_alpha()
@@ -98,7 +104,7 @@ class Obstacle:
         
         # Adjust collision_rect based on the final self.rect
         # Values like (-10, -10) shrink the rect. Adjust as needed.
-        self.collision_rect = self.rect.inflate(-10, -10)
+        self.collision_rect = self.rect.inflate(-15, -15)
 
 
     def update(self):
@@ -132,7 +138,7 @@ game_font = pygame.font.Font(None, 36) # Font for displaying score
 game_active = True # Game state, becomes False on collision
 
 # Initial Game State Values (for reset)
-INITIAL_OBSTACLE_SPEED = 5
+INITIAL_OBSTACLE_SPEED = Default_Speed
 INITIAL_SCORE_TO_NEXT_LEVEL = 50
 
 # Game Levels and Difficulty
@@ -192,12 +198,19 @@ def reset_game():
     dinosaur.jump_velocity = 0
     obstacle_spawn_timer = 0
     game_active = True
+    # Initialize the next obstacle spawn time on reset
+    global next_obstacle_spawn_time
+    next_obstacle_spawn_time = obstacle_spawn_timer + random.randint(60, 180) # Initial random delay (1 to 3 seconds)
 
 # Debug drawing flag
 debug_draw_rects = False # Initialize debug flag
 
 # Game loop
 running = True
+
+# Initialize the first obstacle spawn time
+next_obstacle_spawn_time = obstacle_spawn_timer + random.randint(60, 180) # Initial random delay (1 to 3 seconds)
+
 while running:
     # Handle events
     for event in pygame.event.get():
@@ -226,12 +239,23 @@ while running:
 
     # Obstacle spawning
     obstacle_spawn_timer += 1
-    if obstacle_spawn_timer >= obstacle_spawn_delay and game_active:
+    if obstacle_spawn_timer >= next_obstacle_spawn_time and game_active:
         # Pass SCREEN_HEIGHT - 10 as the ground_y_offset for obstacles
         new_obstacle = Obstacle(SCREEN_WIDTH, SCREEN_HEIGHT - 10)
         new_obstacle.speed = obstacle_speed
         obstacles.append(new_obstacle)
-        obstacle_spawn_timer = 0
+        # Calculate next random spawn time based on speed
+        base_min_delay = 20  # Minimum delay at base speed (e.g., 1 second)
+        base_max_delay = 100 # Maximum delay at base speed (e.g., 3 seconds)
+        
+        # Scale delay based on current obstacle speed (faster speed means shorter delay)
+        # Ensure delays are integers and have a reasonable minimum
+        min_delay = max(30, int(base_min_delay * (INITIAL_OBSTACLE_SPEED / obstacle_speed)))
+        max_delay = max(45, int(base_max_delay * (INITIAL_OBSTACLE_SPEED / obstacle_speed)))
+        
+        random_delay = random.randint(min_delay, max_delay)
+        next_obstacle_spawn_time = obstacle_spawn_timer + random_delay
+        # obstacle_spawn_timer = 0 # No longer needed with next_obstacle_spawn_time
 
     # Update and draw obstacles
     for obstacle in list(obstacles):
@@ -281,7 +305,7 @@ while running:
     # Level progression
     if score >= score_to_next_level and game_active:
         level += 1
-        obstacle_speed += 1 # Increase obstacle speed
+        obstacle_speed += Speed_Increment # Increase obstacle speed
         score_to_next_level += level_up_score_increment * level
         print(f"Level Up! Level: {level}, Speed: {obstacle_speed}, Next Level at: {score_to_next_level} points")
         if level_up_sound:
