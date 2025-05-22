@@ -33,6 +33,9 @@ except ImportError:
             self.is_jumping = False
             self.jump_velocity = 0
             self.gravity = 1
+            # Fallback collision_rect
+            self.collision_rect = self.rect.inflate(-10, -10)
+
 
         def jump(self):
             if not self.is_jumping:
@@ -47,6 +50,8 @@ except ImportError:
                     self.rect.y = self.initial_y_pos
                     self.is_jumping = False
                     self.jump_velocity = 0
+            # Update fallback collision_rect
+            self.collision_rect.center = self.rect.center
         
         def draw(self, surface): # Mock draw
             pass
@@ -60,9 +65,13 @@ except ImportError:
             self.rect = pygame.Rect(screen_width, screen_height_minus_ground_offset - self.height, self.width, self.height)
             self.rect.right = screen_width
             self.speed = INITIAL_OBSTACLE_SPEED_FOR_TEST
+            # Fallback collision_rect
+            self.collision_rect = self.rect.inflate(-10, -10)
 
         def update(self):
             self.rect.x -= self.speed
+            # Update fallback collision_rect
+            self.collision_rect.center = self.rect.center
         
         def get_rect(self):
             return self.rect
@@ -154,17 +163,33 @@ class TestGameLogic(unittest.TestCase):
         self.level_up_score_increment = 50 # Example value
 
     def test_collision_detection(self):
-        # Scenario 1: Overlapping
+        # Ensure collision_rects are updated if rects are moved directly in tests
+        # For Dinosaur
         self.dinosaur.rect.x = 100
-        self.dinosaur.rect.y = GROUND_Y_OFFSET - self.dinosaur.rect.height
-        self.obstacle.rect.x = 100 + self.dinosaur.rect.width - 10 # Ensure overlap
-        self.obstacle.rect.y = GROUND_Y_OFFSET - self.obstacle.rect.height
+        self.dinosaur.rect.y = GROUND_Y_OFFSET - self.dinosaur.rect.height 
+        self.dinosaur.collision_rect.center = self.dinosaur.rect.center
         
-        self.assertTrue(self.dinosaur.rect.colliderect(self.obstacle.rect), "Should detect collision when overlapping.")
+        # For Obstacle
+        # Position obstacle's main rect first
+        self.obstacle.rect.x = 100 + self.dinosaur.rect.width - 10 # Ensure main rects overlap for setup
+        self.obstacle.rect.y = GROUND_Y_OFFSET - self.obstacle.rect.height
+        # Then update its collision_rect's center based on its main rect
+        self.obstacle.collision_rect.center = self.obstacle.rect.center
 
-        # Scenario 2: Not overlapping
-        self.obstacle.rect.x = 300 # Move obstacle far away
-        self.assertFalse(self.dinosaur.rect.colliderect(self.obstacle.rect), "Should not detect collision when not overlapping.")
+        # Scenario 1: Overlapping collision_rects
+        # To ensure collision_rects overlap, we might need to adjust positions
+        # based on the inflation amount.
+        # Let's assume inflation is (-10, -10), meaning 5px from each side.
+        # For simplicity in test, let's directly set collision_rect positions for overlap.
+        self.dinosaur.collision_rect.topleft = (100, GROUND_Y_OFFSET - self.dinosaur.collision_rect.height)
+        self.obstacle.collision_rect.topleft = (100 + self.dinosaur.collision_rect.width - 5, GROUND_Y_OFFSET - self.obstacle.collision_rect.height) # overlap by 5px
+
+        self.assertTrue(self.dinosaur.collision_rect.colliderect(self.obstacle.collision_rect), "Should detect collision when collision_rects are overlapping.")
+
+        # Scenario 2: Not overlapping collision_rects
+        # Move obstacle's collision_rect far away
+        self.obstacle.collision_rect.x = 300 
+        self.assertFalse(self.dinosaur.collision_rect.colliderect(self.obstacle.collision_rect), "Should not detect collision when collision_rects are not overlapping.")
 
     def test_score_increment_on_pass(self):
         # Position dinosaur and obstacle: obstacle is to the right of dinosaur
