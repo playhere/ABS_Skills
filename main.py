@@ -36,12 +36,18 @@ class Dinosaur:
             self.image = pygame.image.load(IMAGE_DIR + "dinosaur.png").convert_alpha()
             self.rect = self.image.get_rect()
             self.rect.bottomleft = (initial_x, self.ground_y_offset)
+            # Create a smaller collision rectangle
+            self.collision_rect = self.rect.inflate(-20, -20) # Shrink by 10 pixels on each side
+            self.collision_rect.center = self.rect.center # Center the collision rect
         except pygame.error as e:
             print(f"Warning: Could not load dinosaur.png: {e}. Using fallback rectangle.")
             self.image = None
             self.width = 50  # Fallback width
             self.height = 50 # Fallback height
             self.rect = pygame.Rect(initial_x, ground_y_offset - self.height, self.width, self.height)
+            # Create a smaller collision rectangle for fallback
+            self.collision_rect = self.rect.inflate(-20, -20) # Shrink by 10 pixels on each side
+            self.collision_rect.center = self.rect.center # Center the collision rect
         
         self.initial_y_pos = self.rect.y # Store initial y position for landing after jump
 
@@ -79,6 +85,9 @@ class Obstacle:
             self.image = pygame.image.load(IMAGE_DIR + "cactus.png").convert_alpha()
             self.rect = self.image.get_rect()
             self.rect.bottomright = (screen_width, self.ground_y_offset)
+            # Create a smaller collision rectangle
+            self.collision_rect = self.rect.inflate(-10, -10) # Shrink by 5 pixels on each side
+            self.collision_rect.center = self.rect.center # Center the collision rect
         except pygame.error as e:
             print(f"Warning: Could not load cactus.png: {e}. Using fallback rectangle.")
             self.image = None
@@ -87,9 +96,14 @@ class Obstacle:
             self.height = random.choice([40, 60, 80])
             self.rect = pygame.Rect(screen_width, self.ground_y_offset - self.height, self.width, self.height)
             self.rect.right = screen_width # Ensure it starts off-screen
+            # Create a smaller collision rectangle for fallback
+            self.collision_rect = self.rect.inflate(-10, -10) # Shrink by 5 pixels on each side
+            self.collision_rect.center = self.rect.center # Center the collision rect
 
     def update(self):
         self.rect.x -= self.speed
+        # Update collision rect position based on image rect
+        self.collision_rect.center = self.rect.center
 
     def draw(self, surface):
         if self.image:
@@ -99,6 +113,9 @@ class Obstacle:
 
     def get_rect(self): # This method is now consistently returning self.rect
         return self.rect
+    
+    def get_collision_rect(self):
+        return self.collision_rect
 
 # Create an instance of the Dinosaur
 # Position the dinosaur considering its height and a 10px margin from the bottom
@@ -190,6 +207,7 @@ while running:
                         jump_sound.play()
             else: # Game is not active (Game Over state)
                 if event.key == pygame.K_r:
+                    print("R key pressed - attempting to restart")
                     reset_game() # reset_game() is already defined
 
     if game_active: # Moved the game logic into this block
@@ -227,7 +245,8 @@ while running:
     if game_active:
         for obstacle in obstacles:
             # obstacle.get_rect() returns obstacle.rect, which is image-based if loaded
-            if dinosaur.rect.colliderect(obstacle.get_rect()):
+            # Use the new collision_rect for more accurate collision detection
+            if dinosaur.collision_rect.colliderect(obstacle.get_collision_rect()):
                 print("Collision!")
                 if game_over_sound:
                     game_over_sound.play()
