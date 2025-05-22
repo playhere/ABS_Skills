@@ -22,6 +22,8 @@ IMAGE_DIR = "assets/images/"
 SOUND_DIR = "assets/sounds/" # Already defined, kept for context
 # --- End Asset Directories ---
 
+# global debug_draw_rects # Declare global here
+
 # Define Dinosaur class
 class Dinosaur:
     def __init__(self, initial_x, ground_y_offset):
@@ -176,7 +178,7 @@ except pygame.error as e:
 # --- End Sound Effect Setup ---
 
 def reset_game():
-    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer
+    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer,debug_draw_rects
     score = 0
     level = 1
     obstacle_speed = INITIAL_OBSTACLE_SPEED
@@ -191,6 +193,9 @@ def reset_game():
     obstacle_spawn_timer = 0
     game_active = True
 
+# Debug drawing flag
+debug_draw_rects = False # Initialize debug flag
+
 # Game loop
 running = True
 while running:
@@ -204,16 +209,16 @@ while running:
                     dinosaur.jump()
                     if jump_sound:
                         jump_sound.play()
-                elif event.key == pygame.K_d: # Toggle debug draw
-                    global debug_draw_rects
-                    debug_draw_rects = not debug_draw_rects
             else: # Game is not active (Game Over state)
                 if event.key == pygame.K_r:
-                    reset_game()
-                elif event.key == pygame.K_d: # Also allow toggle when game over
-                    global debug_draw_rects
-                    debug_draw_rects = not debug_draw_rects
+                    print("R key pressed - attempting to restart")
+                    reset_game() # reset_game() is already defined
+            
+            # Toggle debug drawing with 'P' key
+            if event.key == pygame.K_p:
 
+                debug_draw_rects = not debug_draw_rects
+                print(f"Debug drawing: {debug_draw_rects}")
 
     if game_active:
         # Update game state
@@ -245,10 +250,19 @@ while running:
     for obstacle in obstacles:
         obstacle.draw(screen)
 
+    # Debug drawing of collision rects
+    if debug_draw_rects:
+        # global debug_draw_rects # Not needed here as we only read
+        pygame.draw.rect(screen, (255, 0, 0), dinosaur.collision_rect, 2) # Red for dinosaur
+        for obstacle in obstacles:
+            pygame.draw.rect(screen, (0, 255, 0), obstacle.collision_rect, 2) # Green for obstacles
+
     # Collision detection
-    # Collision detection using the new collision_rect attributes
+    # dinosaur.rect is now the source of truth for dinosaur's collision area
     if game_active:
         for obstacle in obstacles:
+            # obstacle.get_rect() returns obstacle.rect, which is image-based if loaded
+            # Use the new collision_rect for more accurate collision detection
             if dinosaur.collision_rect.colliderect(obstacle.collision_rect):
                 print("Collision!")
                 if game_over_sound:
