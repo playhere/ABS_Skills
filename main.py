@@ -120,6 +120,55 @@ class Obstacle:
     def get_rect(self): # This method is now consistently returning self.rect
         return self.rect
 
+    def get_collision_rect(self):
+        return self.collision_rect
+
+# Define Bird class (inherits from Obstacle for shared properties like speed and update logic)
+class Bird(Obstacle):
+    def __init__(self, screen_width, ground_y_offset):
+        # Initialize with Obstacle properties, though some might be overridden
+        super().__init__(screen_width, ground_y_offset)
+        
+        # Birds appear in the upper portion of the screen
+        min_air_y = ground_y_offset - 200 # e.g., ground level minus 200 pixels
+        max_air_y = ground_y_offset - 50 # e.g., ground level minus 50 pixels (not too high)
+        
+        try:
+            self.image = pygame.image.load(IMAGE_DIR + "bird.png").convert_alpha()
+            self.rect = self.image.get_rect()
+            
+            # Set initial position randomly in the air
+            initial_y = random.randint(min_air_y, max_air_y)
+            self.rect.bottomright = (screen_width, initial_y)
+            
+            # Create a smaller collision rectangle for the bird
+            # Adjust inflate values based on your bird image size for accuracy
+            self.collision_rect = self.rect.inflate(-10, -10) 
+            self.collision_rect.center = self.rect.center
+            
+        except pygame.error as e:
+            print(f"Warning: Could not load bird.png: {e}. Using fallback rectangle.")
+            self.image = None
+            # Fallback dimensions - adjust as needed
+            self.width = 40 
+            self.height = 30
+            # Set initial position randomly in the air for fallback rect
+            initial_y = random.randint(min_air_y, max_air_y)
+            self.rect = pygame.Rect(screen_width, initial_y - self.height, self.width, self.height)
+            self.rect.right = screen_width # Ensure it starts off-screen
+            
+            # Create collision rect for fallback
+            self.collision_rect = self.rect.inflate(-10, -10)
+            self.collision_rect.center = self.rect.center
+
+        # Speed is inherited from Obstacle, can be adjusted if birds move differently
+        # self.speed = Default_Speed # Or a different speed for birds if desired
+
+    # Update and Draw methods are inherited from Obstacle, assuming they work for birds too
+    # If birds need different movement or drawing, these methods can be overridden here.
+
+    # get_rect and get_collision_rect are also inherited.
+
 # Create an instance of the Dinosaur
 # Position the dinosaur considering its height and a 10px margin from the bottom
 dinosaur = Dinosaur(50, SCREEN_HEIGHT - 10) # ground_y_offset is SCREEN_HEIGHT - 10
@@ -184,7 +233,7 @@ except pygame.error as e:
 # --- End Sound Effect Setup ---
 
 def reset_game():
-    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer,debug_draw_rects
+    global score, level, obstacle_speed, score_to_next_level, game_active, obstacles, dinosaur, obstacle_spawn_timer,debug_draw_rects,bonus_scored_recently
     score = 0
     level = 1
     obstacle_speed = INITIAL_OBSTACLE_SPEED
@@ -201,6 +250,8 @@ def reset_game():
     # Initialize the next obstacle spawn time on reset
     global next_obstacle_spawn_time
     next_obstacle_spawn_time = obstacle_spawn_timer + random.randint(60, 180) # Initial random delay (1 to 3 seconds)
+    global bonus_scored_recently # Add bonus score flag to global
+    bonus_scored_recently = False # Reset bonus flag
 
 # Debug drawing flag
 debug_draw_rects = False # Initialize debug flag
@@ -210,6 +261,9 @@ running = True
 
 # Initialize the first obstacle spawn time
 next_obstacle_spawn_time = obstacle_spawn_timer + random.randint(60, 180) # Initial random delay (1 to 3 seconds)
+
+# Bonus score flag initialization
+bonus_scored_recently = False
 
 while running:
     # Handle events
@@ -240,8 +294,17 @@ while running:
     # Obstacle spawning
     obstacle_spawn_timer += 1
     if obstacle_spawn_timer >= next_obstacle_spawn_time and game_active:
-        # Pass SCREEN_HEIGHT - 10 as the ground_y_offset for obstacles
-        new_obstacle = Obstacle(SCREEN_WIDTH, SCREEN_HEIGHT - 10)
+        # Choose between spawning a cactus (Obstacle) or a bird (Bird)
+        # Bird probability is around 1/4 (0.25)
+        spawn_type = random.choices(['cactus', 'bird'], weights=[0.75, 0.25], k=1)[0]
+        
+        if spawn_type == 'cactus':
+            # Pass SCREEN_HEIGHT - 10 as the ground_y_offset for obstacles
+            new_obstacle = Obstacle(SCREEN_WIDTH, SCREEN_HEIGHT - 10)
+        else: # spawn_type == 'bird'
+             # Pass SCREEN_HEIGHT - 10 as ground_y_offset (Bird class uses it to calculate air height)
+            new_obstacle = Bird(SCREEN_WIDTH, SCREEN_HEIGHT - 10)
+
         new_obstacle.speed = obstacle_speed
         obstacles.append(new_obstacle)
         # Calculate next random spawn time based on speed
@@ -251,7 +314,7 @@ while running:
         # Scale delay based on current obstacle speed (faster speed means shorter delay)
         # Ensure delays are integers and have a reasonable minimum
         min_delay = max(30, int(base_min_delay * (INITIAL_OBSTACLE_SPEED / obstacle_speed)))
-        max_delay = max(45, int(base_max_delay * (INITIAL_OBSTACLE_SPEED / obstacle_speed)))
+        max_delay = max(45, int(base_max_delay * (INITIAL_OBSTACLE_SPEED  / obstacle_speed)))
         
         random_delay = random.randint(min_delay, max_delay)
         next_obstacle_spawn_time = obstacle_spawn_timer + random_delay
@@ -295,10 +358,23 @@ while running:
 
     # Score increment
     if game_active:
+        #global  # Declare global here for modifications within this block
         for obstacle in obstacles:
             # Check if obstacle has passed the dinosaur's left edge (dinosaur.rect.x)
             if not hasattr(obstacle, 'scored') and obstacle.rect.right < dinosaur.rect.x:
-                score += 10
+                if isinstance(obstacle, Bird): # Check if it's a bird
+                    # Check if the dinosaur jumped over the bird (dinosaur is above the bird)
+                    if dinosaur.rect.bottom < obstacle.rect.top:
+                        score += 100 # Add 100 for jumping over a bird
+                        bonus_scored_recently = True # Set flag for bonus score
+                    else:
+                         # If it's a bird but not jumped over, no score increment and no bonus flag
+                         bonus_scored_recently = False # Ensure flag is reset if a bird is not jumped over
+                         pass # No score change if a bird is passed under
+                else: # It's a cactus
+                    score += 10 # Add 10 for a cactus
+                    bonus_scored_recently = False # Reset flag for regular score
+                    
                 obstacle.scored = True
     
     
@@ -325,7 +401,8 @@ while running:
 
     if game_active:
         # Display Score and Level
-        score_surface = game_font.render(f"Score: {score}", True, (0, 0, 0))
+        score_color = (255, 0, 0) if bonus_scored_recently else (0, 0, 0) # Red if bonus, else black
+        score_surface = game_font.render(f"Score: {score}", True, score_color)
         score_rect = score_surface.get_rect(topleft=(10, 10))
         screen.blit(score_surface, score_rect)
         
@@ -342,6 +419,11 @@ while running:
         final_score_text = game_font.render(f"Final Score: {score}", True, (0, 0, 0))
         final_score_rect = final_score_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 10))
         screen.blit(final_score_text, final_score_rect)
+
+        # Display Current Level on Game Over screen
+        level_over_text = game_font.render(f"Level Reached: {level}", True, (0, 0, 0))
+        level_over_rect = level_over_text.get_rect(center=(SCREEN_WIDTH // 2, final_score_rect.bottom + 10))
+        screen.blit(level_over_text, level_over_rect)
 
         restart_text = game_font.render("Press R to Restart", True, (0, 0, 0))
         restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))

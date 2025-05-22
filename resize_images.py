@@ -1,17 +1,17 @@
 from PIL import Image
 import os
 
-def resize_image(image_path, new_size=(50, 50)):
+def resize_image(from_path,to_path, new_size=(50, 50)):
     # Create backup filename
-    backup_path = image_path.replace('.png', '_bak.png')
+    backup_path = from_path.replace('.png', '_bak.png')
     
-    if not os.path.exists(image_path):
-        print(f"File not found: {image_path}")
+    if not os.path.exists(from_path):
+        print(f"File not found: {from_path}")
         return
     
     # Create backup
     if not os.path.exists(backup_path):
-        os.rename(image_path, backup_path)
+        os.rename(from_path, backup_path)
         print(f"Created backup: {backup_path}")
     else:
         print(f"Backup already exists: {backup_path}")
@@ -22,13 +22,14 @@ def resize_image(image_path, new_size=(50, 50)):
         # Resize image
         resized_img = img.resize(new_size, Image.Resampling.LANCZOS)
         # Save the resized image with original name
-        resized_img.save(image_path)
-        print(f"Resized image saved: {image_path}")
+        resized_img.save(to_path)
+        print(f"Resized image saved: {to_path}")
         print(f"New size: {resized_img.size}")
 
 def main():
     # Ensure the images directory exists
-    image_dir = "assets/images"
+    image_dir = "assets/images/src"
+    image_dest = "assets/images"
     if not os.path.exists(image_dir):
         print(f"Directory {image_dir} does not exist!")
         return
@@ -36,10 +37,11 @@ def main():
     # Process each PNG file in the directory
     for filename in os.listdir(image_dir):
         if filename.endswith('.png') and not filename.endswith('_bak.png'):
-            image_path = os.path.join(image_dir, filename)
+            from_path = os.path.join(image_dir, filename)
+            to_path = os.path.join(image_dest, filename)
             print(f"\nProcessing {filename}...")
             try:
-                resize_image(image_path)
+                resize_image(from_path,to_path)
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
 
