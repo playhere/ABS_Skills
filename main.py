@@ -426,7 +426,7 @@ while running:
         screen.blit(level_over_text, level_over_rect)
 
         restart_text = game_font.render("Press R to Restart", True, (0, 0, 0))
-        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 70))
         screen.blit(restart_text, restart_rect)
 
     pygame.display.flip()
